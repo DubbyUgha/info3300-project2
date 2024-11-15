@@ -1,12 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Who's the NBA's GOAT</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .line {
+            fill: none;
+            stroke-width: 2px;
+        }
+
+        .axis-label {
+            font-size: 12px;
+            fill: #333;
+        }
+
+        .title {
+            font-size: 16px;
+            text-anchor: middle;
+            fill: #333;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            border: solid 1px;
+            border-radius: 5px;
+            padding: 5px;
+            opacity: 0;
+        }
+    </style>
 </head>
+
 <body>
-    
+    <h1>Who's the NBA's Goat: Michael Jordan, Lebron James, or Kobe Bryant?</h1>
+
+    <svg id="linechart" width="800" height="400"></svg>
+
+    <script>
+                const svg1 = d3.select("#linechart");
+                const width = svg1.attr("width");
+                const height = svg1.attr("height");
+                const margin = { top: 10, right: 30, bottom: 50, left: 50 };
+                const chartWidth = width - margin.left - margin.right;
+                const chartHeight = height - margin.top - margin.bottom;
+
+                d3.csv("datasets/per_game_stats.csv").then(data => {
+                    console.log(data);
+                }) 
+        
+    </script>
 </body>
+
 </html>
