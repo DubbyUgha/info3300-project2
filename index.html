@@ -5,6 +5,22 @@
     <title>Basketball Stats Visualization</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        h3 {
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 20px;
+            background: linear-gradient(90deg, #1f77b4, #ff7f0e, purple);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
         .line {
             fill: none;
             stroke-width: 2px;
@@ -19,9 +35,26 @@
             text-anchor: middle;
         }
         .button {
-            padding: 5px 10px;
-            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #61abe0;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .play-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #f4b75d;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
         }
         .legend {
             font-size: 14px;
@@ -41,7 +74,7 @@
         <button class="button" onclick="updateChart('Michael Jordan')">Michael Jordan</button>
         <button class="button" onclick="updateChart('Kobe Bryant')">Kobe Bryant</button>
         <button class="button" onclick="updateChart('Lebron James')">Lebron James</button>
-        <button class="button" onclick="playAnimation()">Play</button>
+        <button class="play-button" onclick="playAnimation()">Play</button>
     </div>
 
     <svg width="900" height="1000">
@@ -107,11 +140,19 @@
             updateChart("Michael Jordan"); 
         });
 
-        console.log(salaryData);
-
         function updateChart(player) {
             const playerData = currentData.filter(d => d.Player === player);
             const playerSalaryData = salaryData.filter(d => d.Player === player);
+
+            // Update button styles
+            const buttons = document.querySelectorAll(".button");
+            buttons.forEach(button => {
+                if (button.textContent === player) {
+                    button.style.backgroundColor = "#0056b3"; // Darker blue for selected
+                } else {
+                    button.style.backgroundColor = "#61abe0"; // Lighter blue for unselected
+                }
+            });
 
             stats.forEach(stat => {
                 let dataForStat;
@@ -134,12 +175,12 @@
 
                 svgContainers[stat].selectAll(".x-axis").remove();
                 svgContainers[stat].selectAll(".y-axis").remove();
-                
+
                 svgContainers[stat].append("g")
                     .attr("class", "x-axis")
                     .attr("transform", `translate(0,${height})`)
                     .call(d3.axisBottom(xScales[stat]).ticks(10).tickFormat(d3.format("d")));
-                
+
                 svgContainers[stat].append("g")
                     .attr("class", "y-axis")
                     .call(d3.axisLeft(yScales[stat]).ticks(5).tickFormat(stat === "Salary" ? d => `${Math.round(d / 1e6)}M` : d3.format("d")));
