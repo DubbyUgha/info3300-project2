@@ -26,7 +26,6 @@
         .legend {
             font-size: 14px;
             font-weight: bold;
-            margin-top: 10px;
         }
         .legend-color {
             display: inline-block;
@@ -38,32 +37,35 @@
 </head>
 <body>
     <h3>Basketball Stats Over the Seasons</h3>
-    <button class="button" onclick="updateChart('Michael Jordan')">Michael Jordan</button>
-    <button class="button" onclick="updateChart('Kobe Bryant')">Kobe Bryant</button>
-    <button class="button" onclick="updateChart('Lebron James')">Lebron James</button>
-    <button class="button" onclick="playAnimation()">Play</button>
 
-    <!-- Legend for Regular Season and Playoffs -->
-    <div class="legend">
-        <span class="legend-color" style="background-color:#1f77b4;"></span> Regular Season
-        <span class="legend-color" style="background-color:#ff7f0e; margin-left: 15px;"></span> Playoffs
+    <!-- Buttons for player selection and animation -->
+    <div>
+        <button class="button" onclick="updateChart('Michael Jordan')">Michael Jordan</button>
+        <button class="button" onclick="updateChart('Kobe Bryant')">Kobe Bryant</button>
+        <button class="button" onclick="updateChart('Lebron James')">Lebron James</button>
+        <button class="button" onclick="playAnimation()">Play</button>
     </div>
 
     <!-- Main SVG for all charts -->
     <svg width="900" height="700">
-        <text x="450" y="20" class="title">Points, Rebounds and Assists per Game (Regular Season and Playoffs)</text>
+        <text x="450" y="25" class="title">Points, Rebounds and Assists per Game (Regular Season and Playoffs)</text>
         
-        <!-- Separate groups for each stat (Points, Rebounds, Assists) -->
-        <g id="chartPoints" transform="translate(100, 50)"></g>
-        <g id="chartRebounds" transform="translate(100, 250)"></g>
-        <g id="chartAssists" transform="translate(100, 450)"></g>
+        <!-- Legend positioned with additional space below the title -->
+        <g class="legend" transform="translate(350, 40)"> <!-- Adjusted y position here -->
+            <rect class="legend-color" fill="#1f77b4" x="0" y="0"></rect>
+            <text x="20" y="10">Regular Season</text>
+            <rect class="legend-color" fill="#ff7f0e" x="150" y="0"></rect>
+            <text x="170" y="10">Playoffs</text>
+        </g>
 
-        <!-- X-axis label -->
-        <text x="450" y="690" class="axis-label" text-anchor="middle">Season</text>
+        <!-- Separate groups for each stat (Points, Rebounds, Assists) -->
+        <g id="chartPoints" transform="translate(100, 100)"></g> <!-- Adjusted y position of first chart here -->
+        <g id="chartRebounds" transform="translate(100, 300)"></g>
+        <g id="chartAssists" transform="translate(100, 500)"></g>
     </svg>
 
     <script>
-        const margin = {top: 20, right: 50, bottom: 40, left: 70},
+        const margin = {top: 0, right: 50, bottom: 40, left: 50},
               width = 800 - margin.left - margin.right,
               height = 150 - margin.top - margin.bottom;
 
@@ -118,11 +120,11 @@
                 svgContainers[stat].append("g")
                     .attr("class", "x-axis")
                     .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(xScales[stat]).ticks(10).tickFormat(d3.format("d"))); // No commas
+                    .call(d3.axisBottom(xScales[stat]).ticks(10).tickFormat(d3.format("d")));
                 
                 svgContainers[stat].append("g")
                     .attr("class", "y-axis")
-                    .call(d3.axisLeft(yScales[stat]).ticks(5).tickFormat(d3.format("d"))); // No commas
+                    .call(d3.axisLeft(yScales[stat]).ticks(5).tickFormat(d3.format("d")));
 
                 // Draw lines
                 svgContainers[stat].selectAll(".line-group").remove();
@@ -148,15 +150,24 @@
                     .style("fill", d => color(d.RSorPO))
                     .style("opacity", 0);
 
-                // Add y-axis label for each chart
+                // Add y-axis label in the middle of the y-axis
                 svgContainers[stat].selectAll(".y-axis-label").remove();
                 svgContainers[stat].append("text")
                     .attr("class", "axis-label y-axis-label")
-                    .attr("x", -40)
-                    .attr("y", -10)
+                    .attr("x", -margin.left + 15)
+                    .attr("y", height / 2)
                     .attr("text-anchor", "middle")
-                    .attr("transform", `rotate(-90, -40, -10)`)
+                    .attr("transform", `rotate(-90, ${-margin.left + 15}, ${height / 2})`)
                     .text(stat);
+
+                // Add x-axis label for each graph
+                svgContainers[stat].selectAll(".x-axis-label").remove();
+                svgContainers[stat].append("text")
+                    .attr("class", "axis-label x-axis-label")
+                    .attr("x", width / 2)
+                    .attr("y", height + margin.bottom - 10)
+                    .attr("text-anchor", "middle")
+                    .text("Season");
             });
         }
 
