@@ -233,8 +233,8 @@
                             .attr("font-size", "14px")
                             .attr("fill", dotColor) 
                             .style("font-weight", "bold") 
-                            .text(d.Value); 
-                    })
+                            .text(`${d3.format(",")(d.Value)}`); 
+                        })
                     .on("mouseout", () => {
                         svgContainers[stat].selectAll(".tooltip").remove(); // Remove the tooltip
                     });
