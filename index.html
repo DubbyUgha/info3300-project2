@@ -37,8 +37,6 @@
 </head>
 <body>
     <h3>Basketball Stats Over the Seasons</h3>
-
-    <!-- Buttons for player selection and animation -->
     <div>
         <button class="button" onclick="updateChart('Michael Jordan')">Michael Jordan</button>
         <button class="button" onclick="updateChart('Kobe Bryant')">Kobe Bryant</button>
@@ -46,22 +44,20 @@
         <button class="button" onclick="playAnimation()">Play</button>
     </div>
 
-    <!-- Main SVG for all charts -->
-    <svg width="900" height="700">
-        <text x="450" y="25" class="title">Points, Rebounds and Assists per Game (Regular Season and Playoffs)</text>
-        
-        <!-- Legend positioned with additional space below the title -->
-        <g class="legend" transform="translate(350, 40)"> <!-- Adjusted y position here -->
+    <svg width="900" height="1000">
+        <text x="450" y="25" class="title">Points, Rebounds, Assists, and Salary over Seasons</text>
+        <g class="legend" transform="translate(280, 40)">
             <rect class="legend-color" fill="#1f77b4" x="0" y="0"></rect>
             <text x="20" y="10">Regular Season</text>
             <rect class="legend-color" fill="#ff7f0e" x="150" y="0"></rect>
             <text x="170" y="10">Playoffs</text>
+            <rect class="legend-color" fill="purple" x="250" y="0"></rect>
+            <text x="270" y="10">Salary</text>
         </g>
-
-        <!-- Separate groups for each stat (Points, Rebounds, Assists) -->
-        <g id="chartPoints" transform="translate(100, 100)"></g> <!-- Adjusted y position of first chart here -->
+        <g id="chartPoints" transform="translate(100, 100)"></g>
         <g id="chartRebounds" transform="translate(100, 300)"></g>
         <g id="chartAssists" transform="translate(100, 500)"></g>
+        <g id="chartSalary" transform="translate(100, 700)"></g>
     </svg>
 
     <script>
@@ -69,11 +65,12 @@
               width = 800 - margin.left - margin.right,
               height = 150 - margin.top - margin.bottom;
 
-        const stats = ["Points", "Rebounds", "Assists"];
+        const stats = ["Points", "Rebounds", "Assists", "Salary"];
         const svgContainers = {
             Points: d3.select("#chartPoints"),
             Rebounds: d3.select("#chartRebounds"),
-            Assists: d3.select("#chartAssists")
+            Assists: d3.select("#chartAssists"),
+            Salary: d3.select("#chartSalary")
         };
 
         const xScales = {}, yScales = {}, lineFunctions = {}, color = d3.scaleOrdinal().domain(["Regular Season", "Playoffs"]).range(["#1f77b4", "#ff7f0e"]);
@@ -84,36 +81,57 @@
             lineFunctions[stat] = d3.line().x(d => xScales[stat](d.Season)).y(d => yScales[stat](d.Value));
         });
 
-        let currentData = [];
+        let currentData = [], salaryData = [];
 
-        // Load data and initialize
-        d3.csv("datasets/per_game_stats.csv", d => ({
-            Player: d.Player,
-            Season: +d.Season.substring(0, 4),
-            Points: +d.PTS,
-            Rebounds: +d.TRB,
-            Assists: +d.AST,
-            RSorPO: d.RSorPO
-        })).then(data => {
-            currentData = data;
-            updateChart("Michael Jordan");
+        Promise.all([
+            d3.csv("datasets/per_game_stats.csv", d => ({
+                Player: d.Player,
+                Season: +d.Season.substring(0, 4),
+                Points: +d.PTS,
+                Rebounds: +d.TRB,
+                Assists: +d.AST,
+                RSorPO: d.RSorPO
+            })),
+            d3.csv("datasets/salaries.csv", d => ({
+                Player: d.Player,
+                Season: +d.Season.substring(0, 4),
+                Salary: +d.Salary.replace(/\$|,/g, '')  
+            }))
+        ]).then(([perGameData, salaryDataLoaded]) => {
+            currentData = perGameData;
+            salaryData = salaryDataLoaded;
+
+            console.log("Per Game Data:", currentData);  
+            console.log("Salary Data:", salaryData);     
+
+            updateChart("Michael Jordan"); 
         });
 
-        // Define updateChart function
+        console.log(salaryData);
+
         function updateChart(player) {
             const playerData = currentData.filter(d => d.Player === player);
+            const playerSalaryData = salaryData.filter(d => d.Player === player);
 
             stats.forEach(stat => {
-                const dataForStat = playerData.map(d => ({
-                    Season: d.Season,
-                    Value: d[stat],
-                    RSorPO: d.RSorPO
-                }));
+                let dataForStat;
+
+                if (stat === "Salary") {
+                    dataForStat = playerSalaryData.map(d => ({
+                        Season: d.Season,
+                        Value: d[stat]
+                    }));
+                } else {
+                    dataForStat = playerData.map(d => ({
+                        Season: d.Season,
+                        Value: d[stat],
+                        RSorPO: d.RSorPO
+                    }));
+                }
 
                 xScales[stat].domain(d3.extent(dataForStat, d => d.Season));
                 yScales[stat].domain([0, d3.max(dataForStat, d => d.Value)]);
 
-                // Update x and y axes
                 svgContainers[stat].selectAll(".x-axis").remove();
                 svgContainers[stat].selectAll(".y-axis").remove();
                 
@@ -124,22 +142,30 @@
                 
                 svgContainers[stat].append("g")
                     .attr("class", "y-axis")
-                    .call(d3.axisLeft(yScales[stat]).ticks(5).tickFormat(d3.format("d")));
+                    .call(d3.axisLeft(yScales[stat]).ticks(5).tickFormat(stat === "Salary" ? d => `${Math.round(d / 1e6)}M` : d3.format("d")));
 
-                // Draw lines
                 svgContainers[stat].selectAll(".line-group").remove();
                 const lineGroup = svgContainers[stat].append("g").attr("class", "line-group");
 
-                lineGroup.selectAll(".line")
-                    .data([dataForStat.filter(d => d.RSorPO === "Regular Season"), dataForStat.filter(d => d.RSorPO === "Playoffs")])
-                    .enter().append("path")
-                    .attr("class", "line")
-                    .attr("d", d => lineFunctions[stat](d))
-                    .style("stroke", (d, i) => color(i ? "Playoffs" : "Regular Season"))
-                    .style("stroke-width", 2)
-                    .style("opacity", 0);
-                
-                // Draw points
+                if (stat !== "Salary") {
+                    lineGroup.selectAll(".line")
+                        .data([dataForStat.filter(d => d.RSorPO === "Regular Season"), dataForStat.filter(d => d.RSorPO === "Playoffs")])
+                        .enter().append("path")
+                        .attr("class", "line")
+                        .attr("d", d => lineFunctions[stat](d))
+                        .style("stroke", (d, i) => color(i ? "Playoffs" : "Regular Season"))
+                        .style("stroke-width", 2)
+                        .style("opacity", 0);
+                } else {
+                    lineGroup.append("path")
+                        .datum(dataForStat)
+                        .attr("class", "line")
+                        .attr("d", lineFunctions[stat])
+                        .style("stroke", "purple")
+                        .style("stroke-width", 2)
+                        .style("opacity", 0);
+                }
+
                 lineGroup.selectAll(".dot")
                     .data(dataForStat)
                     .enter().append("circle")
@@ -147,10 +173,9 @@
                     .attr("cx", d => xScales[stat](d.Season))
                     .attr("cy", d => yScales[stat](d.Value))
                     .attr("r", 3)
-                    .style("fill", d => color(d.RSorPO))
+                    .style("fill", d => stat === "Salary" ? "purple" : color(d.RSorPO))
                     .style("opacity", 0);
 
-                // Add y-axis label in the middle of the y-axis
                 svgContainers[stat].selectAll(".y-axis-label").remove();
                 svgContainers[stat].append("text")
                     .attr("class", "axis-label y-axis-label")
@@ -160,7 +185,6 @@
                     .attr("transform", `rotate(-90, ${-margin.left + 15}, ${height / 2})`)
                     .text(stat);
 
-                // Add x-axis label for each graph
                 svgContainers[stat].selectAll(".x-axis-label").remove();
                 svgContainers[stat].append("text")
                     .attr("class", "axis-label x-axis-label")
@@ -171,7 +195,6 @@
             });
         }
 
-        // Define playAnimation function
         function playAnimation() {
             stats.forEach(stat => {
                 svgContainers[stat].selectAll(".line")
