@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Basketball Stats Visualization</title>
@@ -11,6 +12,7 @@
             align-items: center;
             font-family: Arial, sans-serif;
         }
+
         h3 {
             font-size: 28px;
             font-weight: bold;
@@ -21,19 +23,23 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+
         .line {
             fill: none;
             stroke-width: 2px;
         }
+
         .axis-label {
             font-size: 14px;
             font-weight: bold;
         }
+
         .title {
             font-size: 20px;
             font-weight: bold;
             text-anchor: middle;
         }
+
         .button {
             padding: 10px 20px;
             margin-bottom: 15px;
@@ -47,6 +53,7 @@
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
         }
+
         .play-button {
             padding: 10px 20px;
             margin-bottom: 15px;
@@ -59,10 +66,12 @@
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
         }
+
         .legend {
             font-size: 14px;
             font-weight: bold;
         }
+
         .legend-color {
             display: inline-block;
             width: 12px;
@@ -71,8 +80,10 @@
         }
     </style>
 </head>
+
 <body>
     <h1>Who's the Best NBA Player Ever? Kobe Bryant, Lebron James, or Michael Jordan?</h1>
+    <a href="index.html">index.html</a>
     <h3>Basketball Stats By Season</h3>
     <div>
         <button class="button" onclick="updateChart('Michael Jordan')">Michael Jordan</button>
@@ -81,8 +92,8 @@
         <button class="play-button" onclick="playAnimation()">Play</button>
     </div>
 
-    <svg id = "svg" width="900" height="1000">
-        <text x="450" y="25" class="title">Points, Rebounds, Assists, and Salary over Seasons</text>
+    <svg id="svg" width="900" height="1000">
+        <text x="450" y="25" class="title">Points, Rebounds, Assists, and Salary by Season</text>
         <g class="legend" transform="translate(280, 40)">
             <rect class="legend-color" fill="#1f77b4" x="0" y="0"></rect>
             <text x="20" y="10">Regular Season</text>
@@ -99,30 +110,50 @@
     <!-- It was too confusing for us to append these gtags for each chart and the legend in the script so we placed them directly in the svg for clarity -->
 
     <script>
-        const margin = {top: 0, right: 50, bottom: 40, left: 50};
-        const  width = 800 - margin.left - margin.right;
-        const  height = 150 - margin.top - margin.bottom;
+        // Set dimensions and margins
+        const width = 900;
+        const height = 1000;
+        const margin = { top: 20, right: 50, bottom: 50, left: 70 };
 
+        // Select the main SVG element
+        const svg = d3.select("#svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // Set chart dimensions
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = 150;
+
+        // Stats and scales
         const stats = ["Points", "Rebounds", "Assists", "Salary"];
-        const svgContainers = {
-            Points: d3.select("#chartPoints"),
-            Rebounds: d3.select("#chartRebounds"),
-            Assists: d3.select("#chartAssists"),
-            Salary: d3.select("#chartSalary")
-        };
+        const xScales = {}, yScales = {}, lineFunctions = {};
 
-        const xScales = {}, yScales = {}, lineFunctions = {}, color = d3.scaleOrdinal().domain(["Regular Season", "Playoffs"]).range(["#1f77b4", "#ff7f0e"]);
-        
         stats.forEach(stat => {
-            xScales[stat] = d3.scaleLinear().range([0, width]);
-            yScales[stat] = d3.scaleLinear().range([height, 0]);
-            lineFunctions[stat] = d3.line().x(d => xScales[stat](d.Season)).y(d => yScales[stat](d.Value));
+            xScales[stat] = d3.scaleLinear().range([0, chartWidth]);
+            yScales[stat] = d3.scaleLinear().range([chartHeight, 0]);
+            lineFunctions[stat] = d3.line()
+                .x(d => xScales[stat](d.Season))
+                .y(d => yScales[stat](d.Value));
         });
 
-        //the animations wouldn't work when our data was in then {} so we declared it outside and it worked
-        let currentData = [];
-        let salaryData = [];
+        const color = d3.scaleOrdinal()
+            .domain(["Regular Season", "Playoffs"])
+            .range(["#1f77b4", "#ff7f0e"]);
 
+        // Add containers for each chart
+        const svgContainers = {
+            Points: svg.append("g").attr("id", "chartPoints").attr("transform", `translate(${margin.left},${margin.top + 0})`),
+            Rebounds: svg.append("g").attr("id", "chartRebounds").attr("transform", `translate(${margin.left},${margin.top + 200})`),
+            Assists: svg.append("g").attr("id", "chartAssists").attr("transform", `translate(${margin.left},${margin.top + 400})`),
+            Salary: svg.append("g").attr("id", "chartSalary").attr("transform", `translate(${margin.left},${margin.top + 600})`)
+        };
+
+        //the animations wouldn't work when our data was in then {} so we declared it outside and it worked
+
+        let currentData = [];
+        let salaryData = []; // Declare salaryData globally
+
+        // Fetch and process data
         Promise.all([
             d3.csv("datasets/per_game_stats.csv", d => ({
                 Player: d.Player,
@@ -135,35 +166,23 @@
             d3.csv("datasets/salaries.csv", d => ({
                 Player: d.Player,
                 Season: +d.Season.substring(0, 4),
-                Salary: +d.Salary.replace(/\$|,/g, '')  
+                Salary: +d.Salary.replace(/\$|,/g, '')
             }))
         ]).then(([perGameData, salaryDataLoaded]) => {
             currentData = perGameData;
-            salaryData = salaryDataLoaded;
+            salaryData = salaryDataLoaded; // Assign loaded data to the global salaryData
 
-            console.log("Per Game Data:", currentData);  
-            console.log("Salary Data:", salaryData);     
-
-            updateChart("Michael Jordan"); 
+            // Update chart with initial player
+            updateChart("Michael Jordan");
         });
+
 
         const updateChart = player => {
             const playerData = currentData.filter(d => d.Player === player);
             const playerSalaryData = salaryData.filter(d => d.Player === player);
 
-            //This is to update button color when clicked
-            const buttons = document.querySelectorAll(".button");
-            buttons.forEach(button => {
-                if (button.textContent === player) {
-                    button.style.backgroundColor = "#0056b3"; // Darker blue for selected
-                } else {
-                    button.style.backgroundColor = "#61abe0"; // Lighter blue for unselected
-                }
-            });
-
             stats.forEach(stat => {
                 let dataForStat;
-
                 if (stat === "Salary") {
                     dataForStat = playerSalaryData.map(d => ({
                         Season: d.Season,
@@ -180,20 +199,21 @@
                 xScales[stat].domain(d3.extent(dataForStat, d => d.Season));
                 yScales[stat].domain([0, d3.max(dataForStat, d => d.Value)]);
 
-                svgContainers[stat].selectAll(".x-axis").remove();
-                svgContainers[stat].selectAll(".y-axis").remove();
+                const container = svgContainers[stat];
+                container.selectAll(".x-axis, .y-axis, .line-group").remove();
 
-                svgContainers[stat].append("g")
+                // Add X and Y axes
+                container.append("g")
                     .attr("class", "x-axis")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(xScales[stat]).ticks(10).tickFormat(d3.format("d")));
+                    .attr("transform", `translate(0,${chartHeight})`)
+                    .call(d3.axisBottom(xScales[stat]).ticks(5).tickFormat(d3.format("d")));
 
-                svgContainers[stat].append("g")
+                container.append("g")
                     .attr("class", "y-axis")
-                    .call(d3.axisLeft(yScales[stat]).ticks(5).tickFormat(stat === "Salary" ? d => `${Math.round(d / 1e6)}M` : d3.format("d")));
+                    .call(d3.axisLeft(yScales[stat]));
 
-                svgContainers[stat].selectAll(".line-group").remove();
-                const lineGroup = svgContainers[stat].append("g").attr("class", "line-group");
+                // Add lines
+                const lineGroup = container.append("g").attr("class", "line-group");
 
                 if (stat !== "Salary") {
                     lineGroup.selectAll(".line")
@@ -201,85 +221,49 @@
                         .enter().append("path")
                         .attr("class", "line")
                         .attr("d", d => lineFunctions[stat](d))
-                        .style("stroke", (d, i) => color(i ? "Playoffs" : "Regular Season"))
-                        .style("stroke-width", 2)
-                        .style("opacity", 0);
+                        .attr("stroke", (d, i) => color(i ? "Playoffs" : "Regular Season"))
+                        .attr("fill", "none");
                 } else {
                     lineGroup.append("path")
                         .datum(dataForStat)
                         .attr("class", "line")
                         .attr("d", lineFunctions[stat])
-                        .style("stroke", "purple")
-                        .style("stroke-width", 2)
-                        .style("opacity", 0);
+                        .attr("stroke", "purple")
+                        .attr("fill", "none");
                 }
-
-                lineGroup.selectAll(".dot")
-                    .data(dataForStat)
-                    .enter().append("circle")
-                    .attr("class", "dot")
-                    .attr("cx", d => xScales[stat](d.Season))
-                    .attr("cy", d => yScales[stat](d.Value))
-                    .attr("r", 3)
-                    .style("fill", d => stat === "Salary" ? "purple" : color(d.RSorPO))
-                    .style("opacity", 0) // Initially hidden
-                    .on("mouseover", function(event, d) {
-                        const dotColor = d3.select(this).style("fill"); // Get the color of the dot
-                        svgContainers[stat].append("text")
-                            .attr("class", "tooltip")
-                            .attr("x", xScales[stat](d.Season))
-                            .attr("y", yScales[stat](d.Value) - 10) // Position above the point
-                            .attr("text-anchor", "middle")
-                            .attr("font-size", "14px")
-                            .attr("fill", dotColor) 
-                            .style("font-weight", "bold") 
-                            .text(d.Value); 
-                    })
-                    .on("mouseout", () => {
-                        svgContainers[stat].selectAll(".tooltip").remove(); // Remove the tooltip
-                    });
-
-                svgContainers[stat].selectAll(".y-axis-label").remove();
-                svgContainers[stat].append("text")
-                    .attr("class", "axis-label y-axis-label")
-                    .attr("x", -margin.left + 15)
-                    .attr("y", height / 2)
-                    .attr("text-anchor", "middle")
-                    .attr("transform", `rotate(-90, ${-margin.left + 15}, ${height / 2})`)
-                    .text(stat);
-
-                svgContainers[stat].selectAll(".x-axis-label").remove();
-                svgContainers[stat].append("text")
-                    .attr("class", "axis-label x-axis-label")
-                    .attr("x", width / 2)
-                    .attr("y", height + margin.bottom - 10)
-                    .attr("text-anchor", "middle")
-                    .text("Season");
             });
         };
 
-        //we learned to animate from the chart from https://medium.com/@louisemoxy/create-a-d3-line-chart-animation-336f1cb7dd61
+        
         const playAnimation = () => {
             stats.forEach(stat => {
-                svgContainers[stat].selectAll(".line")
+                const container = svgContainers[stat];
+
+                // Animate the lines
+                container.selectAll(".line")
                     .style("opacity", 1)
-                    .attr("stroke-dasharray", function() {
+                    .attr("stroke-dasharray", function () {
                         const totalLength = this.getTotalLength();
                         return `${totalLength} ${totalLength}`;
                     })
-                    .attr("stroke-dashoffset", function() { return this.getTotalLength(); })
+                    .attr("stroke-dashoffset", function () {
+                        return this.getTotalLength();
+                    })
                     .transition()
                     .duration(4000)
                     .ease(d3.easeLinear)
                     .attr("stroke-dashoffset", 0);
 
-                svgContainers[stat].selectAll(".dot")
+                // Animate the dots
+                container.selectAll(".dot")
                     .transition()
                     .delay((d, i) => i * 100)
                     .duration(500)
                     .style("opacity", 1);
             });
-        }
+        };
     </script>
+
 </body>
+
 </html>
