@@ -143,7 +143,7 @@
             updateChart("Michael Jordan"); 
         });
 
-        function updateChart(player) {
+        const updateChart = player => {
             const playerData = currentData.filter(d => d.Player === player);
             const playerSalaryData = salaryData.filter(d => d.Player === player);
 
@@ -218,7 +218,22 @@
                     .attr("cy", d => yScales[stat](d.Value))
                     .attr("r", 3)
                     .style("fill", d => stat === "Salary" ? "purple" : color(d.RSorPO))
-                    .style("opacity", 0);
+                    .style("opacity", 0) // Initially hidden
+                    .on("mouseover", function(event, d) {
+                        const dotColor = d3.select(this).style("fill"); // Get the color of the dot
+                        svgContainers[stat].append("text")
+                            .attr("class", "tooltip")
+                            .attr("x", xScales[stat](d.Season))
+                            .attr("y", yScales[stat](d.Value) - 10) // Position above the point
+                            .attr("text-anchor", "middle")
+                            .attr("font-size", "14px")
+                            .attr("fill", dotColor) 
+                            .style("font-weight", "bold") 
+                            .text(d.Value); 
+                    })
+                    .on("mouseout", () => {
+                        svgContainers[stat].selectAll(".tooltip").remove(); // Remove the tooltip
+                    });
 
                 svgContainers[stat].selectAll(".y-axis-label").remove();
                 svgContainers[stat].append("text")
@@ -237,9 +252,9 @@
                     .attr("text-anchor", "middle")
                     .text("Season");
             });
-        }
+        };
 
-        function playAnimation() {
+        const playAnimation = () => {
             stats.forEach(stat => {
                 svgContainers[stat].selectAll(".line")
                     .style("opacity", 1)
