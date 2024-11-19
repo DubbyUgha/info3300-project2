@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Basketball Stats Visualization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBA Player Stats Visualization</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
@@ -11,15 +13,17 @@
             align-items: center;
             font-family: Arial, sans-serif;
         }
+
         h1 {
             font-size: 36px;
             font-weight: bold;
             text-align: center;
             margin-top: 20px;
             margin-bottom: -10px;
-            color: #6d53ff; 
+            color: #6d53ff;
             padding: 10px;
         }
+
         h3 {
             font-size: 28px;
             font-weight: bold;
@@ -30,19 +34,23 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+
         .line {
             fill: none;
             stroke-width: 2px;
         }
+
         .axis-label {
             font-size: 14px;
             font-weight: bold;
         }
+
         .title {
             font-size: 20px;
             font-weight: bold;
             text-anchor: middle;
         }
+
         .button {
             padding: 10px 20px;
             margin-bottom: 15px;
@@ -56,240 +64,206 @@
             cursor: pointer;
             transition: background-color 0.3s, transform 0.2s;
         }
-        .play-button {
-            padding: 10px 20px;
-            margin-bottom: 15px;
-            font-size: 16px;
-            font-weight: bold;
-            color: white;
-            background-color: #f3a228;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s;
+
+        .button:hover, .button.active {
+            background-color: blue;
         }
-        .legend {
-            font-size: 14px;
+
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 3px;
+            pointer-events: none;
+            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        ul {
+            list-style-type: none; 
+            padding: 0;
+             margin: 0;
+        }
+
+        span {
             font-weight: bold;
         }
-        .legend-color {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            margin-right: 5px;
+
+        #legend {
+            margin-top: 20px;
+            font-size: 14px; 
+            font-family: Arial, sans-serif;
         }
     </style>
 </head>
+
 <body>
     <h1>Who's the Best NBA Player Ever? Kobe Bryant, Lebron James, or Michael Jordan?</h1>
     <h3>Basketball Stats By Season</h3>
-    <a href="practice.html">Practice.html</a>
     <div>
-        <button class="button" onclick="updateChart('Michael Jordan')">Michael Jordan</button>
-        <button class="button" onclick="updateChart('Kobe Bryant')">Kobe Bryant</button>
-        <button class="button" onclick="updateChart('Lebron James')">Lebron James</button>
-        <button class="play-button" onclick="playAnimation()">Play</button>
+        <button id="jordan-btn" class="button">Michael Jordan</button>
+        <button id="kobe-btn" class="button">Kobe Bryant</button>
+        <button id="lebron-btn" class="button">LeBron James</button>
+    </div>
+    <div id="charts">
+        <svg id="points" width="800" height="350"></svg>
+        <svg id="rebounds" width="800" height="350"></svg>
+        <svg id="assists" width="800" height="350"></svg>
+        <svg id="salary" width="800" height="350"></svg>
+    </div>
+    <div id="legend">
+        <strong>Legend:</strong>
+        <ul >
+            <li><span>PTS:</span> Points per game</li>
+            <li><span>TRB:</span> Total rebounds per game</li>
+            <li><span>AST:</span> Assists per game</li>
+            <li><span>Salary:</span> Annual salary (USD)</li>
+        </ul>
     </div>
 
-    <svg id = "svg" width="900" height="1000">
-        <text x="450" y="25" class="title">Points, Rebounds, Assists, and Salary over Seasons</text>
-        <g class="legend" transform="translate(280, 40)">
-            <rect class="legend-color" fill="#1f77b4" x="0" y="0"></rect>
-            <text x="20" y="10">Regular Season</text>
-            <rect class="legend-color" fill="#ff7f0e" x="150" y="0"></rect>
-            <text x="170" y="10">Playoffs</text>
-            <rect class="legend-color" fill="purple" x="250" y="0"></rect>
-            <text x="270" y="10">Salary</text>
-        </g>
-        <g id="chartPoints" transform="translate(100, 100)"></g>
-        <g id="chartRebounds" transform="translate(100, 300)"></g>
-        <g id="chartAssists" transform="translate(100, 500)"></g>
-        <g id="chartSalary" transform="translate(100, 700)"></g>
-    </svg>
-    <!-- It was too confusing for us to append these gtags for each chart and the legend in the script so we placed them directly in the svg for clarity -->
-
     <script>
-        const margin = {top: 0, right: 50, bottom: 40, left: 50};
-        const  width = 800 - margin.left - margin.right;
-        const  height = 150 - margin.top - margin.bottom;
+        const width = 800;
+        const height = 400;
+        const margin = { top: 25, right: 30, bottom: 110, left: 70 };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+        //we put chartArea in the CreateChart Function
 
-        const stats = ["Points", "Rebounds", "Assists", "Salary"];
-        const svgContainers = {
-            Points: d3.select("#chartPoints"),
-            Rebounds: d3.select("#chartRebounds"),
-            Assists: d3.select("#chartAssists"),
-            Salary: d3.select("#chartSalary")
-        };
+        // Create a tooltip element
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
 
-        const xScales = {}, yScales = {}, lineFunctions = {}, color = d3.scaleOrdinal().domain(["Regular Season", "Playoffs"]).range(["#1f77b4", "#ff7f0e"]);
-        
-        stats.forEach(stat => {
-            xScales[stat] = d3.scaleLinear().range([0, width]);
-            yScales[stat] = d3.scaleLinear().range([height, 0]);
-            lineFunctions[stat] = d3.line().x(d => xScales[stat](d.Season)).y(d => yScales[stat](d.Value));
-        });
-
-        //the animations wouldn't work when our data was in then {} so we declared it outside and it worked
-        let currentData = [];
-        let salaryData = [];
-
+        // Load the CSV files
         Promise.all([
-            d3.csv("datasets/per_game_stats.csv", d => ({
-                Player: d.Player,
-                Season: +d.Season.substring(0, 4),
-                Points: +d.PTS,
-                Rebounds: +d.TRB,
-                Assists: +d.AST,
-                RSorPO: d.RSorPO
-            })),
-            d3.csv("datasets/salaries.csv", d => ({
-                Player: d.Player,
-                Season: +d.Season.substring(0, 4),
-                Salary: +d.Salary.replace(/\$|,/g, '')  
-            }))
-        ]).then(([perGameData, salaryDataLoaded]) => {
-            currentData = perGameData;
-            salaryData = salaryDataLoaded;
+            d3.csv("datasets/per_game_stats.csv"),
+            d3.csv("datasets/salaries.csv")
+        ]).then(([statsData, salariesData]) => {
+            const players = ["Michael Jordan", "Kobe Bryant", "Lebron James"];
+            const stats = ["PTS", "TRB", "AST", "Salary"];
+            const chartIds = ["points", "rebounds", "assists", "salary"]; //this array simplifies selecting the proper id in the forEach loop
 
-            console.log("Per Game Data:", currentData);  
-            console.log("Salary Data:", salaryData);     
+            //function to clean and filter data by player
+            function filterPlayerData(player) {
+                const playerStats = statsData.filter(d => d.Player === player && d.RSorPO === "Regular Season");
+                const playerSalaries = salariesData.filter(d => d.Player === player);
 
-            updateChart("Michael Jordan"); 
-        });
+                const mergedData = playerStats.map(stat => {
+                    const salary = playerSalaries.find(s => s.Season === stat.Season);
+                    return {
+                        Season: stat.Season,
+                        PTS: +stat.PTS,
+                        TRB: +stat.TRB,
+                        AST: +stat.AST,
+                        Salary: salary ? +salary.Salary.replace(/[\$,]/g, '') : 0
+                    };
+                });
 
-        const updateChart = player => {
-            const playerData = currentData.filter(d => d.Player === player);
-            const playerSalaryData = salaryData.filter(d => d.Player === player);
+                return mergedData;
+            }
 
-            //This is to update button color when clicked
-            const buttons = document.querySelectorAll(".button");
-            buttons.forEach(button => {
-                if (button.textContent === player) {
-                    button.style.backgroundColor = "#0056b3"; // Darker blue for selected
-                } else {
-                    button.style.backgroundColor = "#61abe0"; // Lighter blue for unselected
-                }
-            });
+            function createChart(player, data) {
+                stats.forEach((stat, index) => {
+                    const svg = d3.select(`#${chartIds[index]}`);  //This selects a different svg for each stat
+                    svg.selectAll("*").remove();
 
-            stats.forEach(stat => {
-                let dataForStat;
+                    const chartArea = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-                if (stat === "Salary") {
-                    dataForStat = playerSalaryData.map(d => ({
-                        Season: d.Season,
-                        Value: d[stat]
-                    }));
-                } else {
-                    dataForStat = playerData.map(d => ({
-                        Season: d.Season,
-                        Value: d[stat],
-                        RSorPO: d.RSorPO
-                    }));
-                }
+                    const xScale = d3.scaleBand()
+                        .domain(data.map(d => d.Season))
+                        .range([0, chartWidth])
+                        .padding(0.1);
 
-                xScales[stat].domain(d3.extent(dataForStat, d => d.Season));
-                yScales[stat].domain([0, d3.max(dataForStat, d => d.Value)]);
+                    const yScale = d3.scaleLinear()
+                        .domain([0, d3.max(data, d => d[stat])])
+                        .range([chartHeight, 0]);
 
-                svgContainers[stat].selectAll(".x-axis").remove();
-                svgContainers[stat].selectAll(".y-axis").remove();
+                    //axes and labels
+                    chartArea.append("g")
+                        .attr("transform", `translate(0, ${chartHeight})`)
+                        .call(d3.axisBottom(xScale))
+                        .selectAll("text")
+                        .attr("transform", "rotate(-45)") //we rotated the x-axis labels to make it more readable
+                        .style("text-anchor", "end");
 
-                svgContainers[stat].append("g")
-                    .attr("class", "x-axis")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(xScales[stat]).ticks(10).tickFormat(d3.format("d")));
+                    chartArea.append("g").call(d3.axisLeft(yScale));
 
-                svgContainers[stat].append("g")
-                    .attr("class", "y-axis")
-                    .call(d3.axisLeft(yScales[stat]).ticks(5).tickFormat(stat === "Salary" ? d => `${Math.round(d / 1e6)}M` : d3.format("d")));
+                    svg.append("text")
+                        .attr("x", chartWidth / 2 + margin.left)
+                        .attr("y", margin.top / 2)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "16px")
+                        .style("font-weight", "bold")
+                        .text(`${player}'s  ${stat === "Salary" ? "Salary" : stat} per game`);
 
-                svgContainers[stat].selectAll(".line-group").remove();
-                const lineGroup = svgContainers[stat].append("g").attr("class", "line-group");
+                    //we found NBA Jersey Colors from teamcolorcodes.com
+                    const lineColors = d3.scaleOrdinal()
+                        .domain(["Michael Jordan", "Kobe Bryant", "Lebron James"])
+                        .range(['#CE1141', '#552583', 'navy']);
 
-                if (stat !== "Salary") {
-                    lineGroup.selectAll(".line")
-                        .data([dataForStat.filter(d => d.RSorPO === "Regular Season"), dataForStat.filter(d => d.RSorPO === "Playoffs")])
-                        .enter().append("path")
-                        .attr("class", "line")
-                        .attr("d", d => lineFunctions[stat](d))
-                        .style("stroke", (d, i) => color(i ? "Playoffs" : "Regular Season"))
-                        .style("stroke-width", 2)
-                        .style("opacity", 0);
-                } else {
-                    lineGroup.append("path")
-                        .datum(dataForStat)
-                        .attr("class", "line")
-                        .attr("d", lineFunctions[stat])
-                        .style("stroke", "purple")
-                        .style("stroke-width", 2)
-                        .style("opacity", 0);
-                }
+                    const dotColors = d3.scaleOrdinal()
+                        .domain(["Michael Jordan", "Kobe Bryant", "Lebron James"])
+                        .range(["black", "gold", 'red']);
+                    
+                    const line = d3.line()
+                        .x(d => xScale(d.Season) + xScale.bandwidth() / 2)
+                        .y(d => yScale(d[stat]));
 
-                lineGroup.selectAll(".dot")
-                    .data(dataForStat)
-                    .enter().append("circle")
-                    .attr("class", "dot")
-                    .attr("cx", d => xScales[stat](d.Season))
-                    .attr("cy", d => yScales[stat](d.Value))
-                    .attr("r", 3)
-                    .style("fill", d => stat === "Salary" ? "purple" : color(d.RSorPO))
-                    .style("opacity", 0) // Initially hidden
-                    .on("mouseover", function(event, d) {
-                        const dotColor = d3.select(this).style("fill"); // Get the color of the dot
-                        svgContainers[stat].append("text")
-                            .attr("class", "tooltip")
-                            .attr("x", xScales[stat](d.Season))
-                            .attr("y", yScales[stat](d.Value) - 10) // Position above the point
-                            .attr("text-anchor", "middle")
-                            .attr("font-size", "14px")
-                            .attr("fill", dotColor) 
-                            .style("font-weight", "bold") 
-                            .text(`${d3.format(",")(d.Value)}`); 
+                    //initates a transition animation on click
+                    chartArea.append("path")
+                        .datum(data)
+                        .attr("fill", "none")
+                        .attr("stroke", lineColors(player))
+                        .attr("stroke-width", 2)
+                        .attr("d", line)
+                        .attr("opacity", 0)
+                        .transition()
+                        .duration(2000)
+                        .attr("opacity", 1);
+
+                    chartArea.selectAll(".dot")
+                        .data(data)
+                        .join("circle")
+                        .attr("cx", d => xScale(d.Season) + xScale.bandwidth() / 2)
+                        .attr("cy", d => yScale(d[stat]))
+                        .attr("r", 5)
+                        .attr("fill", dotColors(player))
+                        .attr("opacity", 0)
+                        .on("mouseover", (event, d) => {    //to showcase the stat value when hovered over
+                            tooltip.transition().duration(200).style("opacity", 1);
+                            tooltip.html(`<strong>${stat}:</strong> ${d[stat]}<br><strong>Season:</strong> ${d.Season}`)
+                                .style("left", (event.pageX + 10) + "px")
+                                .style("top", (event.pageY - 20) + "px");
                         })
-                    .on("mouseout", () => {
-                        svgContainers[stat].selectAll(".tooltip").remove(); // Remove the tooltip
-                    });
+                        .on("mouseout", () => {
+                            tooltip.transition().duration(200).style("opacity", 0);
+                        })
+                        .transition()
+                        .duration(2000)
+                        .attr("opacity", 1);
+                });
+            }
 
-                svgContainers[stat].selectAll(".y-axis-label").remove();
-                svgContainers[stat].append("text")
-                    .attr("class", "axis-label y-axis-label")
-                    .attr("x", -margin.left + 15)
-                    .attr("y", height / 2)
-                    .attr("text-anchor", "middle")
-                    .attr("transform", `rotate(-90, ${-margin.left + 15}, ${height / 2})`)
-                    .text(stat);
-
-                svgContainers[stat].selectAll(".x-axis-label").remove();
-                svgContainers[stat].append("text")
-                    .attr("class", "axis-label x-axis-label")
-                    .attr("x", width / 2)
-                    .attr("y", height + margin.bottom - 10)
-                    .attr("text-anchor", "middle")
-                    .text("Season");
+            d3.select("#jordan-btn").on("click", () => {
+                const data = filterPlayerData("Michael Jordan");
+                createChart("Michael Jordan", data);
             });
-        };
 
-        //we learned to animate from the chart from https://medium.com/@louisemoxy/create-a-d3-line-chart-animation-336f1cb7dd61
-        const playAnimation = () => {
-            stats.forEach(stat => {
-                svgContainers[stat].selectAll(".line")
-                    .style("opacity", 1)
-                    .attr("stroke-dasharray", function() {
-                        const totalLength = this.getTotalLength();
-                        return `${totalLength} ${totalLength}`;
-                    })
-                    .attr("stroke-dashoffset", function() { return this.getTotalLength(); })
-                    .transition()
-                    .duration(4000)
-                    .ease(d3.easeLinear)
-                    .attr("stroke-dashoffset", 0);
-
-                svgContainers[stat].selectAll(".dot")
-                    .transition()
-                    .delay((d, i) => i * 100)
-                    .duration(500)
-                    .style("opacity", 1);
+            d3.select("#kobe-btn").on("click", () => {
+                const data = filterPlayerData("Kobe Bryant");
+                createChart("Kobe Bryant", data);
             });
-        }
+
+            d3.select("#lebron-btn").on("click", () => {
+                const data = filterPlayerData("Lebron James");
+                createChart("Lebron James", data);
+            });
+
+            //intial view with Michael Jordan's charts
+            let pageLoad = filterPlayerData("Michael Jordan");
+            createChart("Michael Jordan", pageLoad);
+        });
     </script>
 </body>
+
 </html>
