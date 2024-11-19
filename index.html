@@ -17,7 +17,7 @@
             text-align: center;
             margin-top: 20px;
             margin-bottom: -10px;
-            color: #6d53ff; 
+            color: #6d53ff;
             padding: 10px;
         }
         h3 {
@@ -90,7 +90,7 @@
         <button class="play-button" onclick="playAnimation()">Play</button>
     </div>
 
-    <svg id = "svg" width="900" height="1000">
+    <svg id="svg" width="900" height="1000">
         <text x="450" y="25" class="title">Points, Rebounds, Assists, and Salary over Seasons</text>
         <g class="legend" transform="translate(280, 40)">
             <rect class="legend-color" fill="#1f77b4" x="0" y="0"></rect>
@@ -105,12 +105,11 @@
         <g id="chartAssists" transform="translate(100, 500)"></g>
         <g id="chartSalary" transform="translate(100, 700)"></g>
     </svg>
-    <!-- It was too confusing for us to append these gtags for each chart and the legend in the script so we placed them directly in the svg for clarity -->
 
     <script>
-        const margin = {top: 0, right: 50, bottom: 40, left: 50};
-        const  width = 800 - margin.left - margin.right;
-        const  height = 150 - margin.top - margin.bottom;
+        const margin = { top: 0, right: 50, bottom: 40, left: 50 };
+        const width = 800 - margin.left - margin.right;
+        const height = 150 - margin.top - margin.bottom;
 
         const stats = ["Points", "Rebounds", "Assists", "Salary"];
         const svgContainers = {
@@ -120,15 +119,21 @@
             Salary: d3.select("#chartSalary")
         };
 
-        const xScales = {}, yScales = {}, lineFunctions = {}, color = d3.scaleOrdinal().domain(["Regular Season", "Playoffs"]).range(["#1f77b4", "#ff7f0e"]);
-        
+        const xScales = {};
+        const yScales = {};
+        const lineFunctions = {};
+        const color = d3.scaleOrdinal()
+            .domain(["Regular Season", "Playoffs"])
+            .range(["#1f77b4", "#ff7f0e"]);
+
         stats.forEach(stat => {
             xScales[stat] = d3.scaleLinear().range([0, width]);
             yScales[stat] = d3.scaleLinear().range([height, 0]);
-            lineFunctions[stat] = d3.line().x(d => xScales[stat](d.Season)).y(d => yScales[stat](d.Value));
+            lineFunctions[stat] = d3.line()
+                .x(d => xScales[stat](d.Season))
+                .y(d => yScales[stat](d.Value));
         });
 
-        //the animations wouldn't work when our data was in then {} so we declared it outside and it worked
         let currentData = [];
         let salaryData = [];
 
@@ -144,47 +149,33 @@
             d3.csv("datasets/salaries.csv", d => ({
                 Player: d.Player,
                 Season: +d.Season.substring(0, 4),
-                Salary: +d.Salary.replace(/\$|,/g, '')  
+                Salary: +d.Salary.replace(/\$|,/g, '')
             }))
         ]).then(([perGameData, salaryDataLoaded]) => {
             currentData = perGameData;
             salaryData = salaryDataLoaded;
-
-            console.log("Per Game Data:", currentData);  
-            console.log("Salary Data:", salaryData);     
-
-            updateChart("Michael Jordan"); 
+            updateChart("Michael Jordan");
         });
 
         const updateChart = player => {
             const playerData = currentData.filter(d => d.Player === player);
             const playerSalaryData = salaryData.filter(d => d.Player === player);
 
-            //This is to update button color when clicked
             const buttons = document.querySelectorAll(".button");
             buttons.forEach(button => {
-                if (button.textContent === player) {
-                    button.style.backgroundColor = "#0056b3"; // Darker blue for selected
-                } else {
-                    button.style.backgroundColor = "#61abe0"; // Lighter blue for unselected
-                }
+                button.style.backgroundColor = button.textContent === player
+                    ? "#0056b3"
+                    : "#61abe0";
             });
 
             stats.forEach(stat => {
-                let dataForStat;
-
-                if (stat === "Salary") {
-                    dataForStat = playerSalaryData.map(d => ({
-                        Season: d.Season,
-                        Value: d[stat]
-                    }));
-                } else {
-                    dataForStat = playerData.map(d => ({
+                let dataForStat = stat === "Salary"
+                    ? playerSalaryData.map(d => ({ Season: d.Season, Value: d[stat] }))
+                    : playerData.map(d => ({
                         Season: d.Season,
                         Value: d[stat],
                         RSorPO: d.RSorPO
                     }));
-                }
 
                 xScales[stat].domain(d3.extent(dataForStat, d => d.Season));
                 yScales[stat].domain([0, d3.max(dataForStat, d => d.Value)]);
@@ -199,29 +190,26 @@
 
                 svgContainers[stat].append("g")
                     .attr("class", "y-axis")
-                    .call(d3.axisLeft(yScales[stat]).ticks(5).tickFormat(stat === "Salary" ? d => `${Math.round(d / 1e6)}M` : d3.format("d")));
+                    .call(d3.axisLeft(yScales[stat]).ticks(5)
+                        .tickFormat(stat === "Salary"
+                            ? d => `${Math.round(d / 1e6)}M`
+                            : d3.format("d")));
 
                 svgContainers[stat].selectAll(".line-group").remove();
                 const lineGroup = svgContainers[stat].append("g").attr("class", "line-group");
 
-                if (stat !== "Salary") {
-                    lineGroup.selectAll(".line")
-                        .data([dataForStat.filter(d => d.RSorPO === "Regular Season"), dataForStat.filter(d => d.RSorPO === "Playoffs")])
-                        .enter().append("path")
-                        .attr("class", "line")
-                        .attr("d", d => lineFunctions[stat](d))
-                        .style("stroke", (d, i) => color(i ? "Playoffs" : "Regular Season"))
-                        .style("stroke-width", 2)
-                        .style("opacity", 0);
-                } else {
-                    lineGroup.append("path")
-                        .datum(dataForStat)
-                        .attr("class", "line")
-                        .attr("d", lineFunctions[stat])
-                        .style("stroke", "purple")
-                        .style("stroke-width", 2)
-                        .style("opacity", 0);
-                }
+                const dataSegments = stat !== "Salary"
+                    ? [dataForStat.filter(d => d.RSorPO === "Regular Season"), dataForStat.filter(d => d.RSorPO === "Playoffs")]
+                    : [dataForStat];
+
+                lineGroup.selectAll(".line")
+                    .data(dataSegments)
+                    .enter().append("path")
+                    .attr("class", "line")
+                    .attr("d", d => lineFunctions[stat](d))
+                    .style("stroke", d => stat === "Salary" ? "purple" : color(d[0]?.RSorPO || "Regular Season"))
+                    .style("stroke-width", 2)
+                    .style("opacity", 0);
 
                 lineGroup.selectAll(".dot")
                     .data(dataForStat)
@@ -231,21 +219,21 @@
                     .attr("cy", d => yScales[stat](d.Value))
                     .attr("r", 3)
                     .style("fill", d => stat === "Salary" ? "purple" : color(d.RSorPO))
-                    .style("opacity", 0) // Initially hidden
-                    .on("mouseover", function(event, d) {
-                        const dotColor = d3.select(this).style("fill"); // Get the color of the dot
+                    .style("opacity", 0)
+                    .on("mouseover", function (_, d) {
+                        const dotColor = d3.select(this).style("fill");
                         svgContainers[stat].append("text")
                             .attr("class", "tooltip")
                             .attr("x", xScales[stat](d.Season))
-                            .attr("y", yScales[stat](d.Value) - 10) // Position above the point
+                            .attr("y", yScales[stat](d.Value) - 10)
                             .attr("text-anchor", "middle")
                             .attr("font-size", "14px")
-                            .attr("fill", dotColor) 
-                            .style("font-weight", "bold") 
-                            .text(`${d3.format(",")(d.Value)}`); 
-                        })
+                            .attr("fill", dotColor)
+                            .style("font-weight", "bold")
+                            .text(`${d3.format(",")(d.Value)}`);
+                    })
                     .on("mouseout", () => {
-                        svgContainers[stat].selectAll(".tooltip").remove(); // Remove the tooltip
+                        svgContainers[stat].selectAll(".tooltip").remove();
                     });
 
                 svgContainers[stat].selectAll(".y-axis-label").remove();
@@ -267,16 +255,17 @@
             });
         };
 
-        //we learned to animate from the chart from https://medium.com/@louisemoxy/create-a-d3-line-chart-animation-336f1cb7dd61
         const playAnimation = () => {
             stats.forEach(stat => {
                 svgContainers[stat].selectAll(".line")
                     .style("opacity", 1)
-                    .attr("stroke-dasharray", function() {
+                    .attr("stroke-dasharray", function () {
                         const totalLength = this.getTotalLength();
                         return `${totalLength} ${totalLength}`;
                     })
-                    .attr("stroke-dashoffset", function() { return this.getTotalLength(); })
+                    .attr("stroke-dashoffset", function () {
+                        return this.getTotalLength();
+                    })
                     .transition()
                     .duration(4000)
                     .ease(d3.easeLinear)
@@ -284,11 +273,11 @@
 
                 svgContainers[stat].selectAll(".dot")
                     .transition()
-                    .delay((d, i) => i * 100)
+                    .delay((_, i) => i * 100)
                     .duration(500)
                     .style("opacity", 1);
             });
-        }
+        };
     </script>
 </body>
 </html>
