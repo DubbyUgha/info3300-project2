@@ -137,22 +137,21 @@
         let currentData = [];
         let salaryData = [];
 
-        Promise.all([
-            d3.csv("datasets/per_game_stats.csv", d => ({
-                Player: d.Player,
-                Season: +d.Season.substring(0, 4),
-                Points: +d.PTS,
-                Rebounds: +d.TRB,
-                Assists: +d.AST,
-                RSorPO: d.RSorPO
-            })),
-            d3.csv("datasets/salaries.csv", d => ({
-                Player: d.Player,
-                Season: +d.Season.substring(0, 4),
-                Salary: +d.Salary.replace(/\$|,/g, '')
-            }))
-        ]).then(([perGameData, salaryDataLoaded]) => {
+        d3.csv("datasets/per_game_stats.csv", d => ({
+            Player: d.Player,
+            Season: d.Season.substring(0, 4),
+            Points: d.PTS,
+            Rebounds: d.TRB,
+            Assists: d.AST,
+            RSorPO: d.RSorPO
+        })).then(perGameData => {
             currentData = perGameData;
+            return d3.csv("datasets/salaries.csv", d => ({
+                Player: d.Player,
+                Season: d.Season.substring(0, 4),
+                Salary: d.Salary.replace(/\$|,/g, '')
+            }));
+        }).then(salaryDataLoaded => {
             salaryData = salaryDataLoaded;
             updateChart("Michael Jordan");
         });
