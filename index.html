@@ -65,7 +65,8 @@
             transition: background-color 0.3s, transform 0.2s;
         }
 
-        .button:hover, .button.active {
+        .button:hover,
+        .button.active {
             background-color: blue;
         }
 
@@ -80,9 +81,9 @@
         }
 
         ul {
-            list-style-type: none; 
+            list-style-type: none;
             padding: 0;
-             margin: 0;
+            margin: 0;
         }
 
         span {
@@ -91,8 +92,17 @@
 
         #legend {
             margin-top: 20px;
-            font-size: 14px; 
+            font-size: 14px;
             font-family: Arial, sans-serif;
+        }
+
+        #charts {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #charts svg {
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -113,7 +123,7 @@
     </div>
     <div id="legend">
         <strong>Legend:</strong>
-        <ul >
+        <ul>
             <li><span>PTS:</span> Points per game</li>
             <li><span>TRB:</span> Total rebounds per game</li>
             <li><span>AST:</span> Assists per game</li>
@@ -145,13 +155,16 @@
 
             //function to clean and filter data by player
             function filterPlayerData(player) {
-                const playerStats = statsData.filter(d => d.Player === player && d.RSorPO === "Regular Season");
+                // Filter for all stats for the selected player
+                const playerStats = statsData.filter(d => d.Player === player);
                 const playerSalaries = salariesData.filter(d => d.Player === player);
 
+                // Merge stats and salaries, keeping RSorPO
                 const mergedData = playerStats.map(stat => {
                     const salary = playerSalaries.find(s => s.Season === stat.Season);
                     return {
                         Season: stat.Season,
+                        RSorPO: stat.RSorPO, // Keep RSorPO for later filtering
                         PTS: +stat.PTS,
                         TRB: +stat.TRB,
                         AST: +stat.AST,
@@ -186,8 +199,9 @@
                         .attr("transform", "rotate(-45)") //we rotated the x-axis labels to make it more readable
                         .style("text-anchor", "end");
 
-                    chartArea.append("g").call(d3.axisLeft(yScale));
+                    chartArea.append("g").call(d3.axisLeft(yScale).tickFormat(d => stat === "Salary" ? `${d / 1e6}M` : d));
 
+                    //title
                     svg.append("text")
                         .attr("x", chartWidth / 2 + margin.left)
                         .attr("y", margin.top / 2)
@@ -196,38 +210,71 @@
                         .style("font-weight", "bold")
                         .text(`${player}'s  ${stat === "Salary" ? "Salary" : stat} per game`);
 
+                    //x axis
+                    svg.append("text")
+                        .attr("x", chartWidth / 2 + margin.left)
+                        .attr("y", height - 20) // Slightly above the bottom of the SVG
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "12px")
+                        .text("Season");
+
+                    //y-axis
+                    svg.append("text")
+                        .attr("x", -(chartHeight / 2 + margin.top))
+                        .attr("y", margin.left / 3)
+                        .attr("transform", "rotate(-90)")
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "12px")
+                        .text(stat === "Salary" ? "Salary (USD)" : `${stat} per game`);
+
+
+
                     //we found NBA Jersey Colors from teamcolorcodes.com
-                    const lineColors = d3.scaleOrdinal()
+                    const rsColors = d3.scaleOrdinal()          //regular season colors
                         .domain(["Michael Jordan", "Kobe Bryant", "Lebron James"])
                         .range(['#CE1141', '#552583', 'navy']);
 
-                    const dotColors = d3.scaleOrdinal()
+                    const poColors = d3.scaleOrdinal()          //playoffs color scale
                         .domain(["Michael Jordan", "Kobe Bryant", "Lebron James"])
                         .range(["black", "gold", 'red']);
-                    
+
+                    //split the data for regular season or postseason stats
+                    const rsData = data.filter(d => d.RSorPO === "Regular Season");
+                    const poData = data.filter(d => d.RSorPO === "Playoffs");
+
+                    //console.log(rsData);
+                    //console.log(poData);
+
                     const line = d3.line()
                         .x(d => xScale(d.Season) + xScale.bandwidth() / 2)
                         .y(d => yScale(d[stat]));
 
-                    //initates a transition animation on click
-                    chartArea.append("path")
-                        .datum(data)
+                    //we learned to animate paths from https://observablehq.com/@onoratod/animate-a-path-in-d3
+                    //regular season lines and circles animation
+                    const rsPath = chartArea.append("path")
+                        .datum(rsData)
                         .attr("fill", "none")
-                        .attr("stroke", lineColors(player))
+                        .attr("stroke", rsColors(player))
                         .attr("stroke-width", 2)
                         .attr("d", line)
-                        .attr("opacity", 0)
+                        .attr("stroke-dasharray", function () {
+                            return this.getTotalLength();
+                        })
+                        .attr("stroke-dashoffset", function () {
+                            return this.getTotalLength();
+                        })
                         .transition()
                         .duration(2000)
-                        .attr("opacity", 1);
+                        .ease(d3.easeLinear)
+                        .attr("stroke-dashoffset", 0);
 
                     chartArea.selectAll(".dot")
-                        .data(data)
+                        .data(rsData)
                         .join("circle")
                         .attr("cx", d => xScale(d.Season) + xScale.bandwidth() / 2)
                         .attr("cy", d => yScale(d[stat]))
                         .attr("r", 5)
-                        .attr("fill", dotColors(player))
+                        .attr("fill", rsColors(player))
                         .attr("opacity", 0)
                         .on("mouseover", (event, d) => {    //to showcase the stat value when hovered over
                             tooltip.transition().duration(200).style("opacity", 1);
@@ -241,6 +288,81 @@
                         .transition()
                         .duration(2000)
                         .attr("opacity", 1);
+
+                    //Playoff lines and circles animation
+                    const poPath = chartArea.append("path")
+                        .datum(poData)
+                        .attr("fill", "none")
+                        .attr("stroke", poColors(player))
+                        .attr("stroke-width", 2)
+                        .attr("d", line)
+                        .attr("stroke-dasharray", function () {
+                            return this.getTotalLength();
+                        })
+                        .attr("stroke-dashoffset", function () {
+                            return this.getTotalLength();
+                        })
+                        .transition()
+                        .delay(2000)
+                        .duration(2000)
+                        .ease(d3.easeLinear)
+                        .attr("stroke-dashoffset", 0);
+
+
+                    chartArea.selectAll(".dot")
+                        .data(poData)
+                        .join("circle")
+                        .attr("cx", d => xScale(d.Season) + xScale.bandwidth() / 2)
+                        .attr("cy", d => yScale(d[stat]))
+                        .attr("r", 5)
+                        .attr("fill", poColors(player))
+                        .attr("opacity", 0)
+                        .on("mouseover", (event, d) => {    //to showcase the stat value when hovered over
+                            tooltip.transition().duration(200).style("opacity", 1);
+                            tooltip.html(`<strong>${stat}:</strong> ${d[stat]}<br><strong>Season:</strong> ${d.Season}`)
+                                .style("left", (event.pageX + 10) + "px")
+                                .style("top", (event.pageY - 20) + "px");
+                        })
+                        .on("mouseout", () => {
+                            tooltip.transition().duration(200).style("opacity", 0);
+                        })
+                        .transition()
+                        .duration(2000)
+                        .attr("opacity", 1);
+
+                    //chart legend only for the first chart(in order to remove reduncancy)
+                    if (index === 0) {
+                        svg.selectAll(".legend").remove();
+
+                        const legend = svg.append("g")
+                            .attr("transform", `translate(${chartWidth + margin.left - 150}, ${margin.top})`);
+
+                        const legendData = [
+                            { label: "Regular Season", color: rsColors(player) },
+                            { label: "Playoffs", color: poColors(player) }
+                        ];
+
+                        legend.selectAll(".legend-item")
+                            .data(legendData)
+                            .join("g")
+                            .attr("class", "legend-item")
+                            .attr("transform", (d, i) => `translate(0, ${i * 20})`)
+                            .each(function (d) {
+                                const g = d3.select(this);
+                                g.append("rect")
+                                    .attr("x", 0)
+                                    .attr("y", 0)
+                                    .attr("width", 12)
+                                    .attr("height", 12)
+                                    .attr("fill", d.color);
+                                g.append("text")
+                                    .attr("x", 20)
+                                    .attr("y", 10)
+                                    .attr("text-anchor", "start")
+                                    .style("font-size", "12px")
+                                    .text(d.label);
+                            });
+                    }
                 });
             }
 
