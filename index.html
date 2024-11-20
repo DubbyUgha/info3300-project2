@@ -55,6 +55,7 @@
             padding: 10px 20px;
             margin-bottom: 15px;
             margin-right: 10px;
+            margin-top: 20px;
             font-size: 16px;
             font-weight: bold;
             color: white;
@@ -109,32 +110,26 @@
 
 <body>
     <h1>Who's the Best NBA Player Ever? Kobe Bryant, Lebron James, or Michael Jordan?</h1>
-    <h3>Basketball Stats By Season</h3>
+
     <div>
         <button id="jordan-btn" class="button">Michael Jordan</button>
         <button id="kobe-btn" class="button">Kobe Bryant</button>
         <button id="lebron-btn" class="button">LeBron James</button>
     </div>
+
+    <h3 id="shared-header"></h3> 
+
     <div id="charts">
-        <svg id="points" width="800" height="350"></svg>
-        <svg id="rebounds" width="800" height="350"></svg>
-        <svg id="assists" width="800" height="350"></svg>
-        <svg id="salary" width="800" height="350"></svg>
-    </div>
-    <div id="legend">
-        <strong>Legend:</strong>
-        <ul>
-            <li><span>PTS:</span> Points per game</li>
-            <li><span>TRB:</span> Total rebounds per game</li>
-            <li><span>AST:</span> Assists per game</li>
-            <li><span>Salary:</span> Annual salary (USD)</li>
-        </ul>
+        <svg id="points" width="800" height="250"></svg>
+        <svg id="rebounds" width="800" height="250"></svg>
+        <svg id="assists" width="800" height="250"></svg>
+        <svg id="salary" width="800" height="250"></svg>
     </div>
 
     <script>
         const width = 800;
-        const height = 400;
-        const margin = { top: 25, right: 30, bottom: 110, left: 70 };
+        const height = 250;
+        const margin = { top: 10, right: 30, bottom: 80, left: 60 };
         const chartWidth = width - margin.left - margin.right;
         const chartHeight = height - margin.top - margin.bottom;
         //we put chartArea in the CreateChart Function
@@ -146,12 +141,28 @@
 
         // Load the CSV files
         Promise.all([
-            d3.csv("datasets/per_game_stats.csv"),
-            d3.csv("datasets/salaries.csv")
+            d3.csv("datasets/per_game_stats.csv", d => ({
+                ...d,
+                Season: d.Season.split("-")[0], // Extract the first 4 digits (e.g., "1984" from "1984-85")
+                PTS: d.PTS,
+                TRB: d.TRB,
+                AST: d.AST
+            })),
+            d3.csv("datasets/salaries.csv", d => ({
+                ...d,
+                Season: d.Season.split("-")[0] 
+            }))
         ]).then(([statsData, salariesData]) => {
             const players = ["Michael Jordan", "Kobe Bryant", "Lebron James"];
             const stats = ["PTS", "TRB", "AST", "Salary"];
             const chartIds = ["points", "rebounds", "assists", "salary"]; //this array simplifies selecting the proper id in the forEach loop
+            const axisLabels = ["Points", "Rebounds", "Assists", "Salary (USD)"];
+            const statFullNames = {
+                "PTS": "Points per game",
+                "TRB": "Total rebounds per game",
+                "AST": "Assists per game",
+                "Salary": "Annual salary (USD)"
+            };
 
             //function to clean and filter data by player
             function filterPlayerData(player) {
@@ -195,39 +206,28 @@
                     chartArea.append("g")
                         .attr("transform", `translate(0, ${chartHeight})`)
                         .call(d3.axisBottom(xScale))
-                        .selectAll("text")
-                        .attr("transform", "rotate(-45)") //we rotated the x-axis labels to make it more readable
-                        .style("text-anchor", "end");
+                        .selectAll("text");
 
                     chartArea.append("g").call(d3.axisLeft(yScale).tickFormat(d => stat === "Salary" ? `${d / 1e6}M` : d));
-
-                    //title
+                    
+                    // Add x-axis label
                     svg.append("text")
-                        .attr("x", chartWidth / 2 + margin.left)
-                        .attr("y", margin.top / 2)
+                        .attr("x", chartWidth / 2 + margin.left) 
+                        .attr("y", height - margin.bottom / 2)  
                         .attr("text-anchor", "middle")
-                        .style("font-size", "16px")
+                        .style("font-size", "14px")
                         .style("font-weight", "bold")
-                        .text(`${player}'s  ${stat === "Salary" ? "Salary" : stat} per game`);
-
-                    //x axis
-                    svg.append("text")
-                        .attr("x", chartWidth / 2 + margin.left)
-                        .attr("y", height - 20) // Slightly above the bottom of the SVG
-                        .attr("text-anchor", "middle")
-                        .style("font-size", "12px")
                         .text("Season");
 
-                    //y-axis
+                    // Add y-axis label
                     svg.append("text")
                         .attr("x", -(chartHeight / 2 + margin.top))
                         .attr("y", margin.left / 3)
                         .attr("transform", "rotate(-90)")
                         .attr("text-anchor", "middle")
-                        .style("font-size", "12px")
-                        .text(stat === "Salary" ? "Salary (USD)" : `${stat} per game`);
-
-
+                        .style("font-size", "14px")
+                        .style("font-weight", "bold")
+                        .text(axisLabels[index]);
 
                     //we found NBA Jersey Colors from teamcolorcodes.com
                     const rsColors = d3.scaleOrdinal()          //regular season colors
@@ -278,7 +278,7 @@
                         .attr("opacity", 0)
                         .on("mouseover", (event, d) => {    //to showcase the stat value when hovered over
                             tooltip.transition().duration(200).style("opacity", 1);
-                            tooltip.html(`<strong>${stat}:</strong> ${d[stat]}<br><strong>Season:</strong> ${d.Season}`)
+                            tooltip.html(`<strong>${statFullNames[stat]}:</strong> ${d[stat]}<br><strong>Season:</strong> ${d.Season}`)
                                 .style("left", (event.pageX + 10) + "px")
                                 .style("top", (event.pageY - 20) + "px");
                         })
@@ -319,7 +319,7 @@
                         .attr("opacity", 0)
                         .on("mouseover", (event, d) => {    //to showcase the stat value when hovered over
                             tooltip.transition().duration(200).style("opacity", 1);
-                            tooltip.html(`<strong>${stat}:</strong> ${d[stat]}<br><strong>Season:</strong> ${d.Season}`)
+                            tooltip.html(`<strong>${statFullNames[stat]}:</strong> ${d[stat]}<br><strong>Season:</strong> ${d.Season}`)
                                 .style("left", (event.pageX + 10) + "px")
                                 .style("top", (event.pageY - 20) + "px");
                         })
@@ -366,23 +366,32 @@
                 });
             }
 
+            function updateSharedHeader(player) {
+                const sharedHeader = d3.select("#shared-header");
+                sharedHeader.text(`${player}'s Statistics Through Seasons`);
+            }
+
             d3.select("#jordan-btn").on("click", () => {
                 const data = filterPlayerData("Michael Jordan");
+                updateSharedHeader("Michael Jordan"); 
                 createChart("Michael Jordan", data);
             });
 
             d3.select("#kobe-btn").on("click", () => {
                 const data = filterPlayerData("Kobe Bryant");
+                updateSharedHeader("Kobe Bryant"); 
                 createChart("Kobe Bryant", data);
             });
 
             d3.select("#lebron-btn").on("click", () => {
                 const data = filterPlayerData("Lebron James");
+                updateSharedHeader("Lebron James"); 
                 createChart("Lebron James", data);
             });
 
             //intial view with Michael Jordan's charts
             let pageLoad = filterPlayerData("Michael Jordan");
+            updateSharedHeader("Michael Jordan"); 
             createChart("Michael Jordan", pageLoad);
         });
     </script>
