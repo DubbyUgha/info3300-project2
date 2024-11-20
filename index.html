@@ -66,9 +66,14 @@
             transition: background-color 0.3s, transform 0.2s;
         }
 
-        .button:hover,
-        .button.active {
+        .button:hover {
             background-color: blue;
+            transform: scale(1.05);
+        }
+        
+        .button.active {
+            background-color: darkblue;
+            color: white;
         }
 
         .tooltip {
@@ -103,7 +108,31 @@
         }
 
         #charts svg {
-            margin-bottom: 20px;
+            margin-bottom: -10px;
+        }
+
+        #color-notation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 10px;
+            margin-top: -10px;
+        }
+
+        .color-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .color-box {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            /* border: 1px solid #000; */
+        }
+
+        .color-gap {
+            width: 20px;
         }
     </style>
 </head>
@@ -118,6 +147,7 @@
     </div>
 
     <h3 id="shared-header"></h3> 
+    <div id="color-notation"></div>
 
     <div id="charts">
         <svg id="points" width="800" height="250"></svg>
@@ -329,68 +359,70 @@
                         .transition()
                         .duration(2000)
                         .attr("opacity", 1);
-
-                    //chart legend only for the first chart(in order to remove reduncancy)
-                    if (index === 0) {
-                        svg.selectAll(".legend").remove();
-
-                        const legend = svg.append("g")
-                            .attr("transform", `translate(${chartWidth + margin.left - 150}, ${margin.top})`);
-
-                        const legendData = [
-                            { label: "Regular Season", color: rsColors(player) },
-                            { label: "Playoffs", color: poColors(player) }
-                        ];
-
-                        legend.selectAll(".legend-item")
-                            .data(legendData)
-                            .join("g")
-                            .attr("class", "legend-item")
-                            .attr("transform", (d, i) => `translate(0, ${i * 20})`)
-                            .each(function (d) {
-                                const g = d3.select(this);
-                                g.append("rect")
-                                    .attr("x", 0)
-                                    .attr("y", 0)
-                                    .attr("width", 12)
-                                    .attr("height", 12)
-                                    .attr("fill", d.color);
-                                g.append("text")
-                                    .attr("x", 20)
-                                    .attr("y", 10)
-                                    .attr("text-anchor", "start")
-                                    .style("font-size", "12px")
-                                    .text(d.label);
-                            });
-                    }
                 });
             }
 
             function updateSharedHeader(player) {
                 const sharedHeader = d3.select("#shared-header");
+                const colorNotation = d3.select("#color-notation");
+
                 sharedHeader.text(`${player}'s Statistics Through Seasons`);
+
+                // Define the color mappings for players
+                const playerColors = {
+                    "Michael Jordan": { regular: "red", playoff: "black" },
+                    "Kobe Bryant": { regular: "purple", playoff: "gold" },
+                    "Lebron James": { regular: "navy", playoff: "red" }
+                };
+
+                colorNotation.html("");
+
+                colorNotation.append("div")
+                    .attr("class", "color-item")
+                    .html(`
+                        <div class="color-box" style="background-color: ${playerColors[player].regular};"></div>
+                        Regular Season
+                    `);
+
+                colorNotation.append("div").attr("class", "color-gap");
+
+                colorNotation.append("div")
+                    .attr("class", "color-item")
+                    .html(`
+                        <div class="color-box" style="background-color: ${playerColors[player].playoff};"></div>
+                        Playoffs
+                    `);
+            }
+
+            function setActiveButton(activeButtonId) {
+                d3.selectAll(".button").classed("active", false);
+                d3.select(`#${activeButtonId}`).classed("active", true);
             }
 
             d3.select("#jordan-btn").on("click", () => {
                 const data = filterPlayerData("Michael Jordan");
+                setActiveButton("jordan-btn");
                 updateSharedHeader("Michael Jordan"); 
                 createChart("Michael Jordan", data);
             });
 
             d3.select("#kobe-btn").on("click", () => {
                 const data = filterPlayerData("Kobe Bryant");
+                setActiveButton("kobe-btn");
                 updateSharedHeader("Kobe Bryant"); 
                 createChart("Kobe Bryant", data);
             });
 
             d3.select("#lebron-btn").on("click", () => {
                 const data = filterPlayerData("Lebron James");
+                setActiveButton("lebron-btn");
                 updateSharedHeader("Lebron James"); 
                 createChart("Lebron James", data);
             });
 
             //intial view with Michael Jordan's charts
             let pageLoad = filterPlayerData("Michael Jordan");
+            setActiveButton("jordan-btn");
             updateSharedHeader("Michael Jordan"); 
             createChart("Michael Jordan", pageLoad);
         });
