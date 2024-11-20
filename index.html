@@ -67,13 +67,44 @@
         }
 
         .button:hover {
-            background-color: blue;
+            background-color: #1f77b4;
             transform: scale(1.05);
         }
-        
+
         .button.active {
             background-color: darkblue;
             color: white;
+        }
+
+        #compare-regular-btn,
+        #compare-playoff-btn {
+            background-color: orange;
+            color: white;
+        }
+
+        #compare-regular-btn:hover,
+        #compare-playoff-btn:hover {
+            background-color: darkorange;
+            transform: scale(1.05);
+        }
+
+        #compare-regular-btn.active,
+        #compare-playoff-btn.active {
+            background-color: darkorange;
+            color: white;
+        }
+
+        #button-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #primary-buttons,
+        #compare-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
         }
 
         .tooltip {
@@ -140,14 +171,34 @@
 <body>
     <h1>Who's the Best NBA Player Ever? Kobe Bryant, Lebron James, or Michael Jordan?</h1>
 
-    <div>
+    <!-- <div>
         <button id="jordan-btn" class="button">Michael Jordan</button>
         <button id="kobe-btn" class="button">Kobe Bryant</button>
         <button id="lebron-btn" class="button">LeBron James</button>
+        <div>
+            <button id="compare-regular-btn" class="button">Compare All (Regular Season)</button>
+            <button id="compare-playoff-btn" class="button">Compare All (Playoff)</button>
+        </div>
+    </div> -->
+
+    <div id="button-container">
+        <!-- Primary Player Buttons -->
+        <div id="primary-buttons">
+            <button id="jordan-btn" class="button">Michael Jordan</button>
+            <button id="kobe-btn" class="button">Kobe Bryant</button>
+            <button id="lebron-btn" class="button">LeBron James</button>
+        </div>
+    
+        <!-- Compare Buttons -->
+        <div id="compare-buttons">
+            <button id="compare-regular-btn" class="button">Compare All (Regular Season)</button>
+            <button id="compare-playoff-btn" class="button">Compare All (Playoff)</button>
+        </div>
     </div>
+    
 
     <h3 id="shared-header"></h3> 
-    <div id="color-notation"></div>
+    <div id="color-notation"></div>  
 
     <div id="charts">
         <svg id="points" width="800" height="250"></svg>
@@ -362,36 +413,154 @@
                 });
             }
 
+            function createComparisonCharts(mode) {
+                const combinedData = players.map(player => ({
+                    player,
+                    data: filterPlayerData(player)
+                }));
+
+                stats.forEach((stat, index) => {
+                    const svg = d3.select(`#${chartIds[index]}`);
+                    svg.selectAll("*").remove(); 
+
+                    const chartArea = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+                    // Define the x-axis range covering all seasons
+                    const xScale = d3.scaleLinear()
+                        .domain(d3.extent(combinedData.flatMap(d => d.data.map(p => parseInt(p.Season)))))
+                        .range([0, chartWidth]);
+
+                    // Define the y-axis range covering all players' stats for the current metric
+                    const yScale = d3.scaleLinear()
+                        .domain([0, d3.max(combinedData.flatMap(d => d.data), d => d[stat])])
+                        .range([chartHeight, 0]);
+
+                    chartArea.append("g")
+                        .attr("transform", `translate(0, ${chartHeight})`)
+                        .call(d3.axisBottom(xScale).tickFormat(d => d));
+
+                    chartArea.append("g").call(d3.axisLeft(yScale).tickFormat(d => stat === "Salary" ? `${d / 1e6}M` : d));
+
+                    svg.append("text")
+                        .attr("x", chartWidth / 2 + margin.left)
+                        .attr("y", height - margin.bottom / 2)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "14px")
+                        .style("font-weight", "bold")
+                        .text("Season");
+
+                    svg.append("text")
+                        .attr("x", -(chartHeight / 2 + margin.top))
+                        .attr("y", margin.left / 3)
+                        .attr("transform", "rotate(-90)")
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "14px")
+                        .style("font-weight", "bold")
+                        .text(axisLabels[index]);
+
+                    const playerColors = d3.scaleOrdinal()
+                        .domain(players)
+                        .range(['red', 'purple', 'navy']); 
+
+                    combinedData.forEach(({ player, data }) => {
+                        const filteredData = mode ? data.filter(d => d.RSorPO === mode) : [];
+
+                        const line = d3.line()
+                            .x(d => xScale(parseInt(d.Season)))
+                            .y(d => yScale(d[stat]));
+
+                        chartArea.append("path")
+                            .datum(filteredData)
+                            .attr("fill", "none")
+                            .attr("stroke", playerColors(player))
+                            .attr("stroke-width", 2)
+                            .attr("d", line)
+                            .attr("stroke-dasharray", function () {
+                                return this.getTotalLength();
+                            })
+                            .attr("stroke-dashoffset", function () {
+                                return this.getTotalLength();
+                            })
+                            .transition()
+                            .duration(2000)
+                            .ease(d3.easeLinear)
+                            .attr("stroke-dashoffset", 0);
+
+                        chartArea.selectAll(`.dot-${player}`)
+                            .data(filteredData)
+                            .join("circle")
+                            .attr("cx", d => xScale(parseInt(d.Season)))
+                            .attr("cy", d => yScale(d[stat]))
+                            .attr("r", 5)
+                            .attr("fill", playerColors(player))
+                            .attr("opacity", 0)
+                            .on("mouseover", (event, d) => {
+                                tooltip.transition().duration(200).style("opacity", 1);
+                                tooltip.html(`<strong>${statFullNames[stat]}:</strong> ${d[stat]}<br><strong>Season:</strong> ${d.Season}`)
+                                    .style("left", (event.pageX + 10) + "px")
+                                    .style("top", (event.pageY - 20) + "px");
+                            })
+                            .on("mouseout", () => {
+                                tooltip.transition().duration(200).style("opacity", 0);
+                            })
+                            .transition()
+                            .duration(2000)
+                            .attr("opacity", 1);
+                    });
+                });
+            }
+
             function updateSharedHeader(player) {
                 const sharedHeader = d3.select("#shared-header");
                 const colorNotation = d3.select("#color-notation");
 
-                sharedHeader.text(`${player}'s Statistics Through Seasons`);
+                if (player === "Comparison (Regular Season)" || player === "Comparison (Playoffs)") {
+                    sharedHeader.text(player);
 
-                // Define the color mappings for players
-                const playerColors = {
-                    "Michael Jordan": { regular: "red", playoff: "black" },
-                    "Kobe Bryant": { regular: "purple", playoff: "gold" },
-                    "Lebron James": { regular: "navy", playoff: "red" }
-                };
+                    colorNotation.html("");
 
-                colorNotation.html("");
+                    const playerColors = {
+                        "Michael Jordan": "red",
+                        "Kobe Bryant": "purple",
+                        "Lebron James": "navy"
+                    };
 
-                colorNotation.append("div")
-                    .attr("class", "color-item")
-                    .html(`
-                        <div class="color-box" style="background-color: ${playerColors[player].regular};"></div>
-                        Regular Season
-                    `);
+                    players.forEach(player => {
+                        colorNotation.append("div")
+                            .attr("class", "color-item")
+                            .style("margin-right", "15px")
+                            .html(`
+                                <div class="color-box" style="background-color: ${playerColors[player]};"></div>
+                                ${player}
+                            `);
+                    });
+                } else {
+                    sharedHeader.text(`${player}'s Statistics Through Seasons`);
 
-                colorNotation.append("div").attr("class", "color-gap");
+                    const playerColors = {
+                        "Michael Jordan": { regular: "red", playoff: "black" },
+                        "Kobe Bryant": { regular: "purple", playoff: "gold" },
+                        "Lebron James": { regular: "navy", playoff: "red" }
+                    };
 
-                colorNotation.append("div")
-                    .attr("class", "color-item")
-                    .html(`
-                        <div class="color-box" style="background-color: ${playerColors[player].playoff};"></div>
-                        Playoffs
-                    `);
+                    colorNotation.html("");
+
+                    colorNotation.append("div")
+                        .attr("class", "color-item")
+                        .html(`
+                            <div class="color-box" style="background-color: ${playerColors[player].regular};"></div>
+                            Regular Season
+                        `);
+
+                    colorNotation.append("div").attr("class", "color-gap");
+
+                    colorNotation.append("div")
+                        .attr("class", "color-item")
+                        .html(`
+                            <div class="color-box" style="background-color: ${playerColors[player].playoff};"></div>
+                            Playoffs
+                        `);
+                }
             }
 
             function setActiveButton(activeButtonId) {
@@ -399,25 +568,38 @@
                 d3.select(`#${activeButtonId}`).classed("active", true);
             }
 
+            // Event listeners for the buttons
             d3.select("#jordan-btn").on("click", () => {
                 const data = filterPlayerData("Michael Jordan");
                 setActiveButton("jordan-btn");
-                updateSharedHeader("Michael Jordan"); 
+                updateSharedHeader("Michael Jordan");
                 createChart("Michael Jordan", data);
             });
 
             d3.select("#kobe-btn").on("click", () => {
                 const data = filterPlayerData("Kobe Bryant");
                 setActiveButton("kobe-btn");
-                updateSharedHeader("Kobe Bryant"); 
+                updateSharedHeader("Kobe Bryant");
                 createChart("Kobe Bryant", data);
             });
 
             d3.select("#lebron-btn").on("click", () => {
                 const data = filterPlayerData("Lebron James");
                 setActiveButton("lebron-btn");
-                updateSharedHeader("Lebron James"); 
+                updateSharedHeader("Lebron James");
                 createChart("Lebron James", data);
+            });
+
+            d3.select("#compare-regular-btn").on("click", () => {
+                setActiveButton("compare-regular-btn");
+                updateSharedHeader("Comparison (Regular Season)");
+                createComparisonCharts("Regular Season");
+            });
+
+            d3.select("#compare-playoff-btn").on("click", () => {
+                setActiveButton("compare-playoff-btn");
+                updateSharedHeader("Comparison (Playoffs)");
+                createComparisonCharts("Playoffs");
             });
 
             //intial view with Michael Jordan's charts
